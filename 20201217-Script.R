@@ -49,6 +49,10 @@ source("http://phylo.wdfiles.com/local--files/biogeobears/cladoRcpp.R")
 calc_loglike_sp = compiler::cmpfun(calc_loglike_sp_prebyte)
 calc_independent_likelihoods_on_each_branch = compiler::cmpfun(calc_independent_likelihoods_on_each_branch_prebyte)
 
+################################################################################
+# 1. Standard Analyses
+################################################################################
+
 #load the saved tree into BioGeoBEARS
 trfn = np("data/Mitchell-tree.newick")
 
@@ -75,7 +79,7 @@ tipranges
 
 #Set the maximum number of areas any species may occupy
 #this cannot be larger than the total number of areas on the geography file
-max_range_size = 5
+max_range_size = 7
 
 ###################################################################################
 #Set the models parameters
@@ -668,3 +672,490 @@ restable_AICc_rellike = cbind(restable2, rellike_AICc)
 # Also save to text files
 write.table(restable_AIC_rellike, file="results/restable_AIC.txt", quote=FALSE, sep="\t")
 write.table(restable_AICc_rellike, file="results/restable_AICc.txt", quote=FALSE, sep="\t")
+
+
+###################################################################################
+#Set sensivity analyses
+#We ran four additional analyses with variations on the distance multipliers 
+# matrices ("harsh", "not so harsh", "not so relaxed", and "relaxed") based on DEC
+###################################################################################
+
+###################################################################################
+#Run DEC M2 (harsh matrix)
+###################################################################################
+BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+BioGeoBEARS_run_object$force_sparse=FALSE    
+BioGeoBEARS_run_object$speedup=TRUE          
+BioGeoBEARS_run_object$use_optimx = TRUE     
+BioGeoBEARS_run_object$calc_ancprobs=TRUE    
+
+# Set up a time-stratified analysis 
+BioGeoBEARS_run_object$timesfn = "data/Timeperiods.txt"
+BioGeoBEARS_run_object$dispersal_multipliers_fn = "data/Multiplier_harsh.txt"
+BioGeoBEARS_run_object$areas_allowed_fn = "data/Areas_allowed.txt"
+
+# Input the maximum range size
+BioGeoBEARS_run_object$max_range_size = max_range_size
+
+# Multicore processing if desired
+BioGeoBEARS_run_object$num_cores_to_use=18
+
+#Turn sparse matrix exponentiation off
+BioGeoBEARS_run_object$force_sparse = FALSE
+
+#Give BioGeoBEARS the location of the geography file
+BioGeoBEARS_run_object$geogfn = geog
+
+#Give BioGeoBEARS the location of the topology file
+BioGeoBEARS_run_object$trfn = trfn
+
+# Load the input files into the model object 
+# (It also runs some checks on these inputs for certain errors.)
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+#Divide the tree up by timeperiods
+BioGeoBEARS_run_object = section_the_tree(inputs=BioGeoBEARS_run_object, make_master_table=TRUE, plot_pieces=FALSE, cut_fossils = FALSE)
+# Check the stratified tree description in this table:
+BioGeoBEARS_run_object$master_table
+
+# Default settings to get ancestral states
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE
+
+# Set up DEC model
+# Look at the BioGeoBEARS_run_object; it's just a list of settings etc.
+BioGeoBEARS_run_object
+
+# This contains the model object
+BioGeoBEARS_run_object$BioGeoBEARS_model_object
+
+# This table contains the parameters of the model 
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","min"]= 0.00000001
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","min"]= 0.00000001 
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","max"]= 3 
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","max"]= 3
+
+# Run this to check inputs. Read the error messages if you get them!
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+#DEC M0: w=1
+runslow = TRUE
+resfn = "results/DEC_M2.Rdata"
+if (runslow){
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  resDEC2 = res
+} else {
+  # Loads to "res"
+  load(resfn)
+  resDEC2 = res
+}
+
+###################################################################################
+#Run DEC M3 (relaxed matrix)
+###################################################################################
+BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+BioGeoBEARS_run_object$force_sparse=FALSE    
+BioGeoBEARS_run_object$speedup=TRUE          
+BioGeoBEARS_run_object$use_optimx = TRUE     
+BioGeoBEARS_run_object$calc_ancprobs=TRUE    
+
+# Set up a time-stratified analysis 
+BioGeoBEARS_run_object$timesfn = "data/Timeperiods.txt"
+BioGeoBEARS_run_object$dispersal_multipliers_fn = "data/Multiplier_relaxed.txt"
+BioGeoBEARS_run_object$areas_allowed_fn = "data/Areas_allowed.txt"
+
+# Input the maximum range size
+BioGeoBEARS_run_object$max_range_size = max_range_size
+
+# Multicore processing if desired
+BioGeoBEARS_run_object$num_cores_to_use=18
+
+#Turn sparse matrix exponentiation off
+BioGeoBEARS_run_object$force_sparse = FALSE
+
+#Give BioGeoBEARS the location of the geography file
+BioGeoBEARS_run_object$geogfn = geog
+
+#Give BioGeoBEARS the location of the topology file
+BioGeoBEARS_run_object$trfn = trfn
+
+# Load the input files into the model object 
+# (It also runs some checks on these inputs for certain errors.)
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+#Divide the tree up by timeperiods
+BioGeoBEARS_run_object = section_the_tree(inputs=BioGeoBEARS_run_object, make_master_table=TRUE, plot_pieces=FALSE, cut_fossils = FALSE)
+# Check the stratified tree description in this table:
+BioGeoBEARS_run_object$master_table
+
+# Default settings to get ancestral states
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE
+
+# Set up DEC model
+# Look at the BioGeoBEARS_run_object; it's just a list of settings etc.
+BioGeoBEARS_run_object
+
+# This contains the model object
+BioGeoBEARS_run_object$BioGeoBEARS_model_object
+
+# This table contains the parameters of the model 
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","min"]= 0.00000001
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","min"]= 0.00000001 
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","max"]= 3 
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","max"]= 3
+
+# Run this to check inputs. Read the error messages if you get them!
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+#DEC M0: w=1
+runslow = TRUE
+resfn = "results/DEC_M3.Rdata"
+if (runslow){
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  resDEC3 = res
+} else {
+  # Loads to "res"
+  load(resfn)
+  resDEC3 = res
+}
+
+
+###################################################################################
+#Run DEC M4 (not so harsh matrix)
+###################################################################################
+BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+BioGeoBEARS_run_object$force_sparse=FALSE    
+BioGeoBEARS_run_object$speedup=TRUE          
+BioGeoBEARS_run_object$use_optimx = TRUE     
+BioGeoBEARS_run_object$calc_ancprobs=TRUE    
+
+# Set up a time-stratified analysis 
+BioGeoBEARS_run_object$timesfn = "data/Timeperiods.txt"
+BioGeoBEARS_run_object$dispersal_multipliers_fn = "data/Multiplier-not-so-harsh.txt"
+BioGeoBEARS_run_object$areas_allowed_fn = "data/Areas_allowed.txt"
+
+# Input the maximum range size
+BioGeoBEARS_run_object$max_range_size = max_range_size
+
+# Multicore processing if desired
+BioGeoBEARS_run_object$num_cores_to_use=18
+
+#Turn sparse matrix exponentiation off
+BioGeoBEARS_run_object$force_sparse = FALSE
+
+#Give BioGeoBEARS the location of the geography file
+BioGeoBEARS_run_object$geogfn = geog
+
+#Give BioGeoBEARS the location of the topology file
+BioGeoBEARS_run_object$trfn = trfn
+
+# Load the input files into the model object 
+# (It also runs some checks on these inputs for certain errors.)
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+#Divide the tree up by timeperiods
+BioGeoBEARS_run_object = section_the_tree(inputs=BioGeoBEARS_run_object, make_master_table=TRUE, plot_pieces=FALSE, cut_fossils = FALSE)
+# Check the stratified tree description in this table:
+BioGeoBEARS_run_object$master_table
+
+# Default settings to get ancestral states
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE
+
+# Set up DEC model
+# Look at the BioGeoBEARS_run_object; it's just a list of settings etc.
+BioGeoBEARS_run_object
+
+# This contains the model object
+BioGeoBEARS_run_object$BioGeoBEARS_model_object
+
+# This table contains the parameters of the model 
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","min"]= 0.00000001
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","min"]= 0.00000001 
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","max"]= 3 
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","max"]= 3
+
+# Run this to check inputs. Read the error messages if you get them!
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+#DEC M0: w=1
+runslow = TRUE
+resfn = "results/DEC_M4.Rdata"
+if (runslow){
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  resDEC4 = res
+} else {
+  # Loads to "res"
+  load(resfn)
+  resDEC4 = res
+}
+
+###################################################################################
+#Run DEC M5 (not so relaxed matrix)
+###################################################################################
+BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+BioGeoBEARS_run_object$force_sparse=FALSE    
+BioGeoBEARS_run_object$speedup=TRUE          
+BioGeoBEARS_run_object$use_optimx = TRUE     
+BioGeoBEARS_run_object$calc_ancprobs=TRUE    
+
+# Set up a time-stratified analysis 
+BioGeoBEARS_run_object$timesfn = "data/Timeperiods.txt"
+BioGeoBEARS_run_object$dispersal_multipliers_fn = "data/Multiplier-not-so-relaxed.txt"
+BioGeoBEARS_run_object$areas_allowed_fn = "data/Areas_allowed.txt"
+
+# Input the maximum range size
+BioGeoBEARS_run_object$max_range_size = max_range_size
+
+# Multicore processing if desired
+BioGeoBEARS_run_object$num_cores_to_use=18
+
+#Turn sparse matrix exponentiation off
+BioGeoBEARS_run_object$force_sparse = FALSE
+
+#Give BioGeoBEARS the location of the geography file
+BioGeoBEARS_run_object$geogfn = geog
+
+#Give BioGeoBEARS the location of the topology file
+BioGeoBEARS_run_object$trfn = trfn
+
+# Load the input files into the model object 
+# (It also runs some checks on these inputs for certain errors.)
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+#Divide the tree up by timeperiods
+BioGeoBEARS_run_object = section_the_tree(inputs=BioGeoBEARS_run_object, make_master_table=TRUE, plot_pieces=FALSE, cut_fossils = FALSE)
+# Check the stratified tree description in this table:
+BioGeoBEARS_run_object$master_table
+
+# Default settings to get ancestral states
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE
+
+# Set up DEC model
+# Look at the BioGeoBEARS_run_object; it's just a list of settings etc.
+BioGeoBEARS_run_object
+
+# This contains the model object
+BioGeoBEARS_run_object$BioGeoBEARS_model_object
+
+# This table contains the parameters of the model 
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","min"]= 0.00000001
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","min"]= 0.00000001 
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","max"]= 3 
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","max"]= 3
+
+# Run this to check inputs. Read the error messages if you get them!
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+#DEC M0: w=1
+runslow = TRUE
+resfn = "results/DEC_M5.Rdata"
+if (runslow){
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  resDEC5 = res
+} else {
+  # Loads to "res"
+  load(resfn)
+  resDEC5 = res
+}
+
+
+#######################################################
+# PDF plots - DEC models
+#######################################################
+pdffn = "results/DEC-M2-5.pdf"
+pdf(pdffn, width=8, height=11)
+
+#######################################################
+# Plot ancestral states - DEC M2 (harsh) 
+#######################################################
+analysis_titletxt ="DEC M2 (harsh) Didelphidae"
+
+# Setup
+results_object = resDEC2
+scriptdir = np(system.file("extdata/a_scripts", package="BioGeoBEARS"))
+
+# States
+res2 = plot_BioGeoBEARS_results(results_object, analysis_titletxt, addl_params=list("w"), 
+                                plotwhat="text", label.offset=0.45, tipcex=0.7, statecex=0.65, splitcex=0, 
+                                titlecex=0.8, plotsplits=F, cornercoords_loc=scriptdir, include_null_range=TRUE, 
+                                tr=tr, tipranges=tipranges)
+
+add.plot = plot_BioGeoBEARS_results(results_object, analysis_titletxt, addl_params=list("w"), 
+                                    plotwhat="text", label.offset=0.45, tipcex=0.7, statecex=0.35, splitcex=0.35, 
+                                    titlecex=0.8, plotsplits=T, cornercoords_loc=scriptdir, include_null_range=TRUE, 
+                                    tr=tr, tipranges=tipranges)
+
+# Pie chart
+plot_BioGeoBEARS_results(results_object, analysis_titletxt, addl_params=list("w"), 
+                         plotwhat="pie", label.offset=0.45, tipcex=0.7, statecex=0.65, splitcex=0, 
+                         titlecex=0.8, plotsplits=F, cornercoords_loc=scriptdir, include_null_range=TRUE, 
+                         tr=tr, tipranges=tipranges)
+
+#######################################################
+# Plot ancestral states - DEC M4 (not so harsh) 
+#######################################################
+analysis_titletxt ="DEC M4 (not so harsh) Didelphidae"
+
+# Setup
+results_object = resDEC4
+scriptdir = np(system.file("extdata/a_scripts", package="BioGeoBEARS"))
+
+# States
+res2 = plot_BioGeoBEARS_results(results_object, analysis_titletxt, addl_params=list("w"), 
+                                plotwhat="text", label.offset=0.45, tipcex=0.7, statecex=0.65, splitcex=0, 
+                                titlecex=0.8, plotsplits=F, cornercoords_loc=scriptdir, include_null_range=TRUE, 
+                                tr=tr, tipranges=tipranges)
+
+add.plot = plot_BioGeoBEARS_results(results_object, analysis_titletxt, addl_params=list("w"), 
+                                    plotwhat="text", label.offset=0.45, tipcex=0.7, statecex=0.35, splitcex=0.35, 
+                                    titlecex=0.8, plotsplits=T, cornercoords_loc=scriptdir, include_null_range=TRUE, 
+                                    tr=tr, tipranges=tipranges)
+
+# Pie chart
+plot_BioGeoBEARS_results(results_object, analysis_titletxt, addl_params=list("w"), 
+                         plotwhat="pie", label.offset=0.45, tipcex=0.7, statecex=0.65, splitcex=0, 
+                         titlecex=0.8, plotsplits=F, cornercoords_loc=scriptdir, include_null_range=TRUE, 
+                         tr=tr, tipranges=tipranges)
+
+#######################################################
+# Plot ancestral states - DEC M3 (relaxed)
+#######################################################
+analysis_titletxt ="DEC M3 (relaxed) Didelphidae"
+
+# Setup
+results_object = resDEC3
+scriptdir = np(system.file("extdata/a_scripts", package="BioGeoBEARS"))
+
+# States
+res3 = plot_BioGeoBEARS_results(results_object, analysis_titletxt, addl_params=list("w"), 
+                                plotwhat="text", label.offset=0.45, tipcex=0.7, statecex=0.65, splitcex=0, 
+                                titlecex=0.8, plotsplits=F, cornercoords_loc=scriptdir, include_null_range=TRUE, 
+                                tr=tr, tipranges=tipranges)
+
+# States
+add.plot2 = plot_BioGeoBEARS_results(results_object, analysis_titletxt, addl_params=list("w"), 
+                                     plotwhat="text", label.offset=0.45, tipcex=0.7, statecex=0.35, splitcex=0.35, 
+                                     titlecex=0.8, plotsplits=T, cornercoords_loc=scriptdir, include_null_range=TRUE, 
+                                     tr=tr, tipranges=tipranges)
+
+# Pie chart
+plot_BioGeoBEARS_results(results_object, analysis_titletxt, addl_params=list("w"), 
+                         plotwhat="pie", label.offset=0.45, tipcex=0.7, statecex=0.65, splitcex=0, 
+                         titlecex=0.8, plotsplits=F, cornercoords_loc=scriptdir, include_null_range=TRUE, 
+                         tr=tr, tipranges=tipranges)
+
+#######################################################
+# Plot ancestral states - DEC M5 (not so relaxed)
+#######################################################
+analysis_titletxt ="DEC M5 (not so relaxed) Didelphidae"
+
+# Setup
+results_object = resDEC5
+scriptdir = np(system.file("extdata/a_scripts", package="BioGeoBEARS"))
+
+# States
+res3 = plot_BioGeoBEARS_results(results_object, analysis_titletxt, addl_params=list("w"), 
+                                plotwhat="text", label.offset=0.45, tipcex=0.7, statecex=0.65, splitcex=0, 
+                                titlecex=0.8, plotsplits=F, cornercoords_loc=scriptdir, include_null_range=TRUE, 
+                                tr=tr, tipranges=tipranges)
+
+# States
+add.plot2 = plot_BioGeoBEARS_results(results_object, analysis_titletxt, addl_params=list("w"), 
+                                     plotwhat="text", label.offset=0.45, tipcex=0.7, statecex=0.35, splitcex=0.35, 
+                                     titlecex=0.8, plotsplits=T, cornercoords_loc=scriptdir, include_null_range=TRUE, 
+                                     tr=tr, tipranges=tipranges)
+
+# Pie chart
+plot_BioGeoBEARS_results(results_object, analysis_titletxt, addl_params=list("w"), 
+                         plotwhat="pie", label.offset=0.45, tipcex=0.7, statecex=0.65, splitcex=0, 
+                         titlecex=0.8, plotsplits=F, cornercoords_loc=scriptdir, include_null_range=TRUE, 
+                         tr=tr, tipranges=tipranges)
+
+dev.off()  # Turn off PDF
+cmdstr = paste("open ", pdffn, sep="")
+system(cmdstr) # Plot it
+
+
+#########################################################################
+#########################################################################
+# 
+# CALCULATE SUMMARY STATISTICS TO COMPARE
+# DEC, DEC+w, DIVALIKE, DIVALIKE+w
+# 
+#########################################################################
+#########################################################################
+
+
+#######################################################
+# Statistics -- DEC vs. DEC+w
+#######################################################
+restable.DECMx = NULL
+
+# Extract the log-likelihood
+LnL_M2 = get_LnL_from_BioGeoBEARS_results_object(resDEC2)
+LnL_M3 = get_LnL_from_BioGeoBEARS_results_object(resDEC3)
+LnL_M4 = get_LnL_from_BioGeoBEARS_results_object(resDEC4)
+LnL_M5 = get_LnL_from_BioGeoBEARS_results_object(resDEC5)
+
+
+stats = AICstats_2models(LnL_1, LnL_2, numparams1, numparams2)
+stats
+
+# Extract parameters
+resM0 = extract_params_from_BioGeoBEARS_results_object(results_object=resDEC, 
+                                                       returnwhat="table", paramsstr_digits=4)
+resM2 = extract_params_from_BioGeoBEARS_results_object(results_object=resDEC2, 
+                                                      returnwhat="table", paramsstr_digits=4)
+resM3 = extract_params_from_BioGeoBEARS_results_object(results_object=resDEC3, 
+                                                       returnwhat="table", paramsstr_digits=4)
+resM4 = extract_params_from_BioGeoBEARS_results_object(results_object=resDEC4, 
+                                                       returnwhat="table", paramsstr_digits=4)
+resM5 = extract_params_from_BioGeoBEARS_results_object(results_object=resDEC5, 
+                                                       returnwhat="table", paramsstr_digits=4)
+
+# The null hypothesis for a Likelihood Ratio Test (LRT) is that two models
+# confer the same likelihood on the data. See: Brian O'Meara's webpage:
+# http://www.brianomeara.info/tutorials/aic
+# ...for an intro to LRT, AIC, and AICc
+
+rbind(resM0, resM2, resM3, resM4, resM5)
+
+restable.DECMx = rbind(restable.DECMx, resM0, resM2, resM3, resM4, resM5)
+
+row.names(restable.DECMx) = c("DEC M0", "DEC M2", "DEC M3", "DEC M4", "DEC M5")
+
+#######################################################
+# Save the results tables
+#######################################################
+
+# Loads to "restable"
+save(restable.DECMx, file="results/restable_DECMx.Rdata")
+load(file="results/restable_DECMx.Rdata")
+
+# Also save to text files
+write.table(restable.DECMx, file="results/restable_DECMx.txt", quote=FALSE, sep="\t")
+
+save.image(file = "20210310.RData")
